@@ -1,0 +1,33 @@
+//Create a field on Account named "Number of Contacts". Populate this field with the number of contacts related to an account.
+
+trigger UpdateTotalNumberContacts on Contact (after insert, after update, after delete) {
+
+    // Get a list of all account IDs associated with the modified contacts
+    Set<Id> accountIds = new Set<Id>();
+    for (Contact c : Trigger.new) {
+        accountIds.add(c.AccountId);
+    }
+    for (Contact c : Trigger.old) {
+        accountIds.add(c.AccountId);
+    }
+
+    // Query for the number of contacts associated with each account
+    List<Account> accountsToUpdate = new List<Account>();
+    for (AggregateResult result : [
+            SELECT AccountId, COUNT(Id) countContacts
+            FROM Contact
+            WHERE AccountId IN :accountIds
+            GROUP BY AccountId
+    ]) {
+        Id accountId = (Id)result.get('AccountId');
+        Integer countContacts = (Integer)result.get('countContacts');
+        Account a = new Account(Id = accountId);
+        a.Total_Number_of_Contacts__c = countContacts;
+        accountsToUpdate.add(a);
+    }
+
+    // Update the Total Number of Contacts field on the affected accounts
+    if (!accountsToUpdate.isEmpty()) {
+        update accountsToUpdate;
+    }
+}
